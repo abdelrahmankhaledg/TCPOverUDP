@@ -12,6 +12,7 @@
 #include <queue>
 #include <sys/socket.h>
 #include <cstring>
+#include <netinet/in.h>
 #include "Packet.h"
 #include "Ack_packet.h"
 #include "serialize_deserialize.h"
@@ -20,15 +21,16 @@
 
 void addPacketToCwnd(struct Packet* packet,struct cwnd* cwnd);
 void addPacketsToCwnd( std::queue<Packet*> packetsQueue,struct cwnd* cwnd );
-void acknowledgePacketsSlowStart(struct Ack_packet ackPacket, struct cwnd* cwnd);
-void acknowledgePacketsCongestionAvoidance(struct Ack_packet ackPacket, struct cwnd* cwnd);
+void acknowledgePacketsSlowStart(struct Ack_packet* ackPacket, struct cwnd* cwnd);
+void acknowledgePacketsCongestionAvoidance(struct Ack_packet* ackPacket, struct cwnd* cwnd);
 void increaseCwndSizeSlwStart(int noAcknowledgedPackets,struct cwnd* cwnd);
-int acknowledgePackets(struct Ack_packet ackPacket, struct cwnd* cwnd);
-void controlFlow(struct Ack_packet ackPacket, struct cwnd* cwnd);
+int acknowledgePackets(struct Ack_packet* ackPacket, struct cwnd* cwnd);
+int controlFlow(struct Ack_packet* ackPacket, struct cwnd* cwnd);
 bool checkCorrectnessOfNextSeqno(struct cwnd cwnd);
 int getNextSeqno(struct cwnd * cwnd);
 bool isCwndMaxSizeReached(struct cwnd cwnd);
-
+void changeStateOnTimeout(struct cwnd* cwnd);
+void initializeCwnd(struct cwnd* cwnd);
 
 /*
  * Code Skeleton
@@ -42,13 +44,12 @@ bool isCwndMaxSizeReached(struct cwnd cwnd);
  */
 struct cwnd {
     int state;//0 slow start , 1 congestion avoidance , 2 fast recovery
-    int ssthresh;//TODO initialize with 64kbps
-    int duplicateAcknowledgment;//TODO
-    int lastAckno;//TODO Initialized to -1
+    int ssthresh;
+    int duplicateAcknowledgment;
+    int lastAckno;
     double fractionIncreaseInSize;//Used in case of congestion avoidance
     int currentAvailableCwndSize;
     int nextSeqno;
-    timeval timeout;
     std::vector<Packet*> packetsWindow;
 };
 
@@ -58,99 +59,91 @@ struct cwnd {
 }
 
 void addPacketsToCwnd( std::queue<Packet*> packetsQueue,struct cwnd* cwnd ){
-    int noPacketsToBeSent=cwnd->currentAvailableCwndSize-cwnd->packetsWindow.size();
-    for(int i=0;i<noPacketsToBeSent && !packetsQueue.empty();i++){
+     int noPacketsToBeSent=std::min((unsigned long)cwnd->currentAvailableCwndSize,packetsQueue.size());
+    for(int i=0;i<noPacketsToBeSent;i++){
         addPacketToCwnd(packetsQueue.front(),cwnd);
         packetsQueue.pop();
     }
 }
 
-void controlFlow(struct Ack_packet ackPacket, struct cwnd* cwnd){
-    //TODO change the timeout timer if the Packet is the send base
+int controlFlow(struct Ack_packet* ackPacket, struct cwnd* cwnd){//-1 if the packet is duplicate and 0 if the packet isn't duplicate
     //State is not fast recovery and a duplicate ack has been received
-    if(cwnd->state!=2 && ackPacket.ackno==cwnd->lastAckno){
+    if(cwnd->state!=2 && ackPacket->ackno==cwnd->lastAckno){
         cwnd->duplicateAcknowledgment++;
         if(cwnd->duplicateAcknowledgment==3){
             cwnd->state=2;//State is fast recovery
             cwnd->ssthresh=cwnd->currentAvailableCwndSize/2;
             cwnd->currentAvailableCwndSize=(cwnd->currentAvailableCwndSize+3)>MAXCWNDSIZE?MAXCWNDSIZE:(cwnd->currentAvailableCwndSize+3);
-            //TODO retransmit all packets in cwnd
         }
-        return;
+        return -1;
     }
 
-    //TODO timout transition from state 2 to state 0
 
-    if (cwnd->state==0 && ackPacket.ackno!=cwnd->lastAckno){
+
+    if (cwnd->state==0 && ackPacket->ackno!=cwnd->lastAckno){
         acknowledgePacketsSlowStart(ackPacket,cwnd);
+        return 0;
     }
 
-    else if (cwnd->state==1 && ackPacket.ackno!=cwnd->lastAckno){
+    else if (cwnd->state==1 && ackPacket->ackno!=cwnd->lastAckno){
         acknowledgePacketsCongestionAvoidance(ackPacket,cwnd);
+        return 0;
     }
-    else if(cwnd->state==2 && ackPacket.ackno!=cwnd->lastAckno){
+    else if(cwnd->state==2 && ackPacket->ackno!=cwnd->lastAckno){
         cwnd->duplicateAcknowledgment=0;
         cwnd->state=1;
         cwnd->currentAvailableCwndSize=cwnd->ssthresh;
         acknowledgePacketsCongestionAvoidance(ackPacket,cwnd);
+        return 0;
     }
-    else if (cwnd->state==2 && ackPacket.ackno==cwnd->lastAckno){
+    else if (cwnd->state==2 && ackPacket->ackno==cwnd->lastAckno){
         cwnd->currentAvailableCwndSize=(cwnd->currentAvailableCwndSize+1)>MAXCWNDSIZE?MAXCWNDSIZE:(cwnd->currentAvailableCwndSize+1);
-        //TODO transmit new packet
+        return -1;
     }
 
 
 
 
-    /*else if (cwnd->state==2 && cwnd->duplicateAcknowledgment==3){
-
-    }*/
-
-// acknowledgePackets(ackPacket,cwnd);//TODO check
 
 
 }
 
-int acknowledgePackets(struct Ack_packet ackPacket, struct cwnd* cwnd){
-    cwnd->lastAckno=ackPacket.ackno;
+int acknowledgePackets(struct Ack_packet* ackPacket, struct cwnd* cwnd){
+    cwnd->lastAckno=ackPacket->ackno;
     cwnd->duplicateAcknowledgment=0;
     //remove the acknowledged Packet from the vector
 
     int noAcknowledgedPackets = 0;
-    while ((cwnd->packetsWindow[0]->seqno <= ackPacket.ackno)) {
+    while (cwnd->packetsWindow.size()!=0 &&(cwnd->packetsWindow[0]->seqno <= ackPacket->ackno)) {
         cwnd->packetsWindow.erase(cwnd->packetsWindow.begin());
         noAcknowledgedPackets++;
     }
     return noAcknowledgedPackets;
  }
 
- void acknowledgePacketsSlowStart(struct Ack_packet ackPacket, struct cwnd* cwnd){
+ void acknowledgePacketsSlowStart(struct Ack_packet* ackPacket, struct cwnd* cwnd){
      cwnd->duplicateAcknowledgment=0;
      int noAcknowledgedPackets= acknowledgePackets(ackPacket,cwnd);
      increaseCwndSizeSlwStart(noAcknowledgedPackets,cwnd);
      if(cwnd->currentAvailableCwndSize>=cwnd->ssthresh){
          cwnd->state=1;//congestion avoidance
      }
-     return;
  }
 
 
- void acknowledgePacketsCongestionAvoidance(struct Ack_packet ackPacket, struct cwnd* cwnd){
+ void acknowledgePacketsCongestionAvoidance(struct Ack_packet* ackPacket, struct cwnd* cwnd){
     cwnd->duplicateAcknowledgment=0;
     int noAcknowledgedPackets=acknowledgePackets(ackPacket,cwnd);
     while(noAcknowledgedPackets--){
         cwnd->fractionIncreaseInSize=(1.0/cwnd->currentAvailableCwndSize);
         if(cwnd->fractionIncreaseInSize>1-0.00001){
             cwnd->currentAvailableCwndSize=(cwnd->currentAvailableCwndSize+1)>MAXCWNDSIZE?MAXCWNDSIZE:(cwnd->currentAvailableCwndSize+1);
+            cwnd->fractionIncreaseInSize=0;
         }
     }
  }
 
 
- int acknowledgePacketsFastRecovery(struct Ack_packet ackPacket, struct cwnd* cwnd){
-        cwnd->currentAvailableCwndSize=(cwnd->currentAvailableCwndSize+1)>MAXCWNDSIZE?MAXCWNDSIZE:(cwnd->currentAvailableCwndSize+1);
-
- }
 
 void increaseCwndSizeSlwStart(int noAcknowledgedPackets,struct cwnd* cwnd){
     int nextAvailableSize=cwnd->currentAvailableCwndSize+noAcknowledgedPackets;
@@ -168,19 +161,31 @@ int getNextSeqno(struct cwnd * cwnd){
     return seqno;
 }
 
-void sendPackets(struct cwnd* cwnd,int client_sock_fd){
-    cwnd->timeout.tv_sec=1;
-    cwnd->timeout.tv_usec=0;
+void sendPackets(struct cwnd* cwnd,int server_sock_fd,sockaddr_in cliaddr){
     for(int i=0;i<cwnd->packetsWindow.size();i++) {
         char serializedPacket[sizeof(Packet)];
         struct Packet *packet = cwnd->packetsWindow[i];
         serializePacket(packet,serializedPacket);
-        sendto(client_sock_fd,serializedPacket, strlen(serializedPacket),0,);
+        sendto(server_sock_fd,serializedPacket, strlen(serializedPacket),0,(const struct sockaddr *)&cliaddr,sizeof(cliaddr));
     }
-
-
  }
 
+ void changeStateOnTimeout(struct cwnd* cwnd){
+     cwnd->state=0;//slow start
+     cwnd->ssthresh=cwnd->currentAvailableCwndSize/2;
+     cwnd->currentAvailableCwndSize=1;
+     cwnd->duplicateAcknowledgment=0;
+ }
+
+ void initializeCwnd(struct cwnd* cwnd){
+     cwnd->state=0;//slow start
+     cwnd->ssthresh=20;// TODO Check
+     cwnd->duplicateAcknowledgment=0;
+     cwnd->lastAckno=63;//It is set to 63 to handle the case where the sequence number is 0 at the start of the sending oepration
+     cwnd->fractionIncreaseInSize=0;
+     cwnd->currentAvailableCwndSize=1;
+     cwnd->nextSeqno=0;
+ }
 
 
 #endif //UNTITLED_CWND_
