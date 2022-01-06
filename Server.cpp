@@ -49,7 +49,7 @@ int main(int argc,char const *argv[]){
     cout<<"Binding Server Socket is Complete"<<endl;
 
 
-    while(1){
+   // while(1){
 
         int n;
         cout<<"Receiving the file name from the client"<<endl;
@@ -61,15 +61,15 @@ int main(int argc,char const *argv[]){
         tdata->server_sock_fd=server_sock_fd;
         tdata->cliaddr=cliaddr;
         strcpy(tdata->filePath,buffer);
-
         //pthread_mutex_lock(&lock);
         //  numOfConnectedUsers++;
         //tdata->numOfConnectedClients=&numOfConnectedUsers;
         //tdata->lock=&lock;
         //pthread_mutex_unlock(&lock);
         pthread_create(&thread_id,NULL,sendFile,(void *)tdata);
-        pthread_detach(thread_id);
-    }
+    //}
+    //pthread_detach(thread_id);
+    pthread_join((thread_id), NULL);
     //pthread_mutex_destroy(&lock);
     return 0;
 }

@@ -21,7 +21,7 @@ using namespace std;
 #define ackPacketSize sizeof(Ack_packet)
 
 struct threadData{
-    char filePath[20];// TODO Check
+    char filePath[100];// TODO Check
     int server_sock_fd;
     sockaddr_in cliaddr;
     struct cwnd* cwnd;

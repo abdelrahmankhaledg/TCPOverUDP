@@ -4,7 +4,7 @@
 
 #ifndef UNTITLED_SLOW_START_H
 #define UNTITLED_SLOW_START_H
-
+/*
 #include "cwnd.h"
 #include <queue>
 void acknowledgePacketAndIncreaseCwndSize(struct cwnd cwnd,std::queue<Packet> packetsQueue,struct Ack_packet ackPacket){
@@ -23,5 +23,5 @@ void acknowledgePacketAndIncreaseCwndSize(struct cwnd cwnd,std::queue<Packet> pa
     }
     //TODO send packets at the end of cwnd
 }
-
+*/
 #endif //UNTITLED_SLOW_START_H

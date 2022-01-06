@@ -5,7 +5,6 @@
 
 void* sendFile(void * thread_arg){
     struct threadData* data=(struct threadData * )thread_arg;
-
     fd_set readfds;
     FILE * fp;
     queue<Packet *> packetsQueue;
@@ -14,15 +13,20 @@ void* sendFile(void * thread_arg){
     fseek(fp,0,SEEK_END);
     fileSize=ftell(fp);
     fseek(fp,0,SEEK_SET);
+    data->cwnd=new struct cwnd;
     initializeCwnd(data->cwnd);
+
     //TODO handle 500 bytes of packet aren't all full with data
     while (fileSize>0) {
         int readDataSize = min(SIZE, fileSize);
         fileSize -= readDataSize;
         char readData[readDataSize];
+
         fread(readData, readDataSize, 1, fp);
+
         Packet *packet = new Packet;
-        strcpy(packet->data, readData);
+        memset(packet->data,0,500);
+        strncpy(packet->data, readData,readDataSize);
         packet->len = readDataSize + 6;//TODO Check
         packetsQueue.push(packet);
         if (packetsQueue.size() == data->cwnd->currentAvailableCwndSize || fileSize==0) {
@@ -32,7 +36,7 @@ void* sendFile(void * thread_arg){
             do {
                 FD_ZERO(&readfds);
                 FD_SET(data->server_sock_fd, &readfds);
-                addPacketsToCwnd(packetsQueue, data->cwnd);
+                addPacketsToCwnd(&packetsQueue, data->cwnd);
                 if(ackResult!=0)
                 sendPackets(data->cwnd, data->server_sock_fd, data->cliaddr);
 
@@ -76,7 +80,7 @@ void* sendFile(void * thread_arg){
     strcpy(closePacket->data,"CLS");
     char serializedPacket[sizeof(Packet)];
     serializePacket(closePacket,serializedPacket);
-    sendto(data->server_sock_fd,serializedPacket, strlen(serializedPacket),0,(struct sockaddr* )&data->cliaddr,sizeof(data->cliaddr));
+    sendto(data->server_sock_fd,serializedPacket, sizeof(serializedPacket),0,(struct sockaddr* )&data->cliaddr,sizeof(data->cliaddr));
 }
 
 void setTimeOut(timeval* timeout,int timeoutVal){
