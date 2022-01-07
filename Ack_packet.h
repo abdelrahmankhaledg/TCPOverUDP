@@ -1,9 +1,10 @@
 //
-// Created by abdelrahmankhaledg on ٣‏/١‏/٢٠٢٢.
+// Created by abdelrahmankhaledg on ٦‏/١‏/٢٠٢٢.
 //
 
-#ifndef UNTITLED_ACK_PACKET_H
-#define UNTITLED_ACK_PACKET_H
+#ifndef UNTITLED1_ACK_PACKET_H
+#define UNTITLED1_ACK_PACKET_H
+
 
 #include <cstdint>
 
@@ -11,4 +12,6 @@ struct Ack_packet{
     uint16_t len;
     uint32_t ackno;
 };
-#endif //UNTITLED_ACK_PACKET_H
+
+
+#endif //UNTITLED1_ACK_PACKET_H

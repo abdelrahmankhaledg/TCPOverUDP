@@ -10,6 +10,7 @@
 #include <iostream>
 #include <queue>
 #include <fstream>
+#include <chrono>
 #include "Ack_packet.h"
 #include "Packet.h"
 #include "serialize_deserialize.h"
@@ -62,36 +63,57 @@ int main(int argc, char const *argv[]) {
         }
         file.close();
     }*/
+
+
     FileName="/home/abdelrahmankhaledg/CLionProjects/untitled/test2";
     FILE *pFileTXT;
     pFileTXT = fopen("/home/abdelrahmankhaledg/CLionProjects/untitled1/output", "w");
     sendto(sock, FileName, strlen(FileName), 0,(struct sockaddr * )&serv_addr,sizeof(serv_addr));
     socklen_t serv_addr_len=sizeof(serv_addr);
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+    int fileSize=0;
     while(1){
         struct Packet *MyPacket = new Packet;
         valread = recvfrom(sock, buffer, sizeof (Packet),0,(struct sockaddr*)&serv_addr,&serv_addr_len);
 
         deserializePacket(buffer, MyPacket);
-        if(strcmp(MyPacket->data,"CLS")==0){
+       // cout<<"The received is "<<MyPacket->seqno<<endl;
+        if((MyPacket->seqno)==65){
             fclose(pFileTXT);
             break;
         }
         if (ExpectedSequenceNumber == MyPacket->seqno) {
-            fwrite(MyPacket->data,MyPacket->len-6,1,pFileTXT);//TODO not only txt %c ?
-
+            fwrite(MyPacket->data,MyPacket->len-6,1,pFileTXT);
+            fileSize+=MyPacket->len-6;
             struct Ack_packet MyAckPacket = {6, ExpectedSequenceNumber};
             char array[sizeof(Ack_packet)];
             serializePacketAck(&MyAckPacket, array);
             sendto(sock, array, sizeof(array), 0,(struct sockaddr*)&serv_addr,serv_addr_len);
             ExpectedSequenceNumber+=1;
             ExpectedSequenceNumber=ExpectedSequenceNumber%64;
+           // cout<<"Received seqno correct"<<MyPacket->seqno<<endl;
+
         } else {
-            cout<<MyPacket->seqno<<endl;
+            //cout<<"Received seqno"<<MyPacket->seqno<<endl;
+            //cout<<"Expected seqno wrong"<<ExpectedSequenceNumber<<endl;
+
             struct Ack_packet MyAckPacket = {6, (ExpectedSequenceNumber + 63) % 64};
             char array[sizeof(Ack_packet)];
             serializePacketAck(&MyAckPacket, array);
+            //cout<<MyAckPacket.ackno<<endl;
             sendto(sock, array, sizeof(array), 0,(struct sockaddr*)&serv_addr,serv_addr_len);
         }
     }
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+
+    FILE * fp=fopen("/home/abdelrahmankhaledg/CLionProjects/untitled1/log","a");
+
+    fprintf(fp,"Throughput is %f byte/microsecond  \n",(double)fileSize/(std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()));
+    fclose(fp);
+
     return 0;
 }

@@ -1,9 +1,9 @@
 //
-// Created by abdelrahmankhaledg on ٣‏/١‏/٢٠٢٢.
+// Created by abdelrahmankhaledg on ٦‏/١‏/٢٠٢٢.
 //
 
-#ifndef UNTITLED_PACKET_H
-#define UNTITLED_PACKET_H
+#ifndef UNTITLED1_PACKET_H
+#define UNTITLED1_PACKET_H
 
 #include <cstdint>
 
@@ -12,4 +12,6 @@ struct Packet{
     uint32_t seqno;
     char data[500];
 };
-#endif //UNTITLED_PACKET_H
+
+
+#endif //UNTITLED1_PACKET_H

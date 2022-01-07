@@ -43,7 +43,6 @@ void deserializePacket(char *data ,Packet* packet){
     }
 }
 
-
 void deserializeAckPacket(char *data,Ack_packet *ackPacket){
     uint16_t *p1 =(uint16_t*)data;
     ackPacket->len=*p1;
