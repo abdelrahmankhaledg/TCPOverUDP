@@ -32,6 +32,7 @@ bool isCwndMaxSizeReached(struct cwnd cwnd);
 void changeStateOnTimeout(struct cwnd* cwnd);
 void initializeCwnd(struct cwnd* cwnd);
 void sendPackets(struct cwnd* cwnd,int server_sock_fd,sockaddr_in cliaddr);
+void writePackets(struct cwnd* cwnd,int server_sock_fd,sockaddr_in cliaddr);
 /*
  * Code Skeleton
  * Slow Start

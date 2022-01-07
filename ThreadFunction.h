@@ -22,7 +22,6 @@ using namespace std;
 
 struct threadData{
     char filePath[100];// TODO Check
-    int server_sock_fd;
     sockaddr_in cliaddr;
     struct cwnd* cwnd;
 };

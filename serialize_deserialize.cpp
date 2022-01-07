@@ -8,10 +8,11 @@ void serializePacket(Packet* packet,char *data){
     uint16_t * p1 = (uint16_t*)data;
     *p1=packet->len;
     p1++;
-    *p1=packet->seqno;
-    p1++;
+    uint32_t * p3=(uint32_t*)p1;
+    *p3=packet->seqno;
+    p3++;
 
-    char *p2 = (char*)p1;
+    uint8_t *p2 = (uint8_t*)p3;
     int  i = 0;
     while(i<500){
         *p2=packet->data[i];
@@ -31,8 +32,9 @@ void serializePacketAck(Ack_packet* ackPacket,char *data){
 void deserializePacket(char *data ,Packet* packet){
     uint16_t *p1 =(uint16_t*)data;
     packet->len=*p1;p1++;
-    packet->seqno=*p1;p1++;
-    char *p2 = (char*)p1;
+    uint32_t * p3=(uint32_t*)p1;
+    packet->seqno=*p3;p3++;
+    uint8_t *p2 = (uint8_t*)p3;
     int  i = 0 ;
     while(i<500){
         packet->data[i]=*p2;
